@@ -1,0 +1,68 @@
+#-------------------------------------------------------------------------------
+# Workflow configuration
+#-------------------------------------------------------------------------------
+
+name: Deploy
+
+on:
+  push:               # Run on push
+    paths-ignore:     # File patterns to ignore
+    - '**.md'         # Ignore changes to *.md files
+
+  pull_request:       # Run on pull-request
+    paths-ignore:     # File-patterns to ignore
+    - '**.md'         # Ignore changes to *.md files
+
+#-------------------------------------------------------------------------------
+# Workflow jobs
+#-------------------------------------------------------------------------------
+
+jobs:
+  build-mac:
+      runs-on: macos-latest
+      name: '🍎 macOS (Universal)'
+      
+      steps:
+      - name: '🧰 Checkout'
+        uses: actions/checkout@v4
+        with:
+          submodule: recursive
+
+      - name: '⚙️ Install CMake'
+        uses: lukka/get-cmake@latest
+        with:
+          useLocalCache: true
+        
+      - name: '⚙️ Dependency Install'
+        run: |
+          brew install glew
+          brew install castxml
+          python3 -m pip install cffi --break-system-packages
+          python3 -m pip install imageio --break-system-packages
+          python3 -m pip install numpy --break-system-packages
+          python3 -m pip install pyopengl --break-system-packages
+
+      - name: '⚙️ Build'
+        run: |
+          ./build_osx.sh
+          ls
+
+  upload:
+      name: '🗂 Create release and upload artifacts'
+      needs:
+        - build-mac
+      runs-on: ubuntu-latest
+      steps:
+      - name: '📥 Download artifacts'
+        uses: actions/download-artifact@v4
+      - name: '🗂 Inspect directory after downloading artifacts'
+        run: ls -alFR
+      - name: '🚀 Create release and upload artifacts'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+            sudo apt-get update
+            sudo apt-get install libfuse2
+            wget -q https://github.com/TheAssassin/pyuploadtool/releases/download/continuous/pyuploadtool-x86_64.AppImage
+            chmod +x pyuploadtool-x86_64.AppImage
+            #./pyuploadtool-x86_64.AppImage **/${{env.EXECUTABLE}}-${{env.VERSION}}-Linux-x86_64.deb
